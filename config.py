@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Configuration module for OpenRouter API Proxy.
+Configuration module for Anthropic API Proxy.
 Loads settings from a YAML file and initializes logging.
 """
 
@@ -37,7 +37,7 @@ def setup_logging(config_: Dict[str, Any]) -> logging.Logger:
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    logger_ = logging.getLogger("openrouter-proxy")
+    logger_ = logging.getLogger("anthropic-proxy")
     logger_.info("Logging level set to %s", log_level_str)
 
     return logger_
@@ -49,86 +49,78 @@ def normalize_and_validate_config(config_data: Dict[str, Any]):
     and validates the structure and types, logging warnings/errors.
     Modifies the config_data dictionary in place.
     """
-    # --- OpenRouter Section ---
-    if not isinstance(config_data.get("openrouter"), dict):
-        logger.warning("'openrouter' section missing or invalid in config.yml. Using defaults.")
-        config_data["openrouter"] = {}
-    openrouter_config = config_data["openrouter"]
+    # --- Anthropic Section ---
+    if not isinstance(config_data.get("anthropic"), dict):
+        logger.warning("'anthropic' section missing or invalid in config.yml. Using defaults.")
+        config_data["anthropic"] = {}
+    anthropic_config = config_data["anthropic"]
 
-    default_base_url = "https://openrouter.ai/api/v1"
-    if not isinstance(openrouter_config.get("base_url"), str):
+    default_base_url = "https://api.kilo.ai/v1"
+    if not isinstance(anthropic_config.get("base_url"), str):
         logger.warning(
-            "'openrouter.base_url' missing or invalid in config.yml. Using default: %s",
+            "'anthropic.base_url' missing or invalid in config.yml. Using default: %s",
             default_base_url
         )
-        openrouter_config["base_url"] = default_base_url
+        anthropic_config["base_url"] = default_base_url
     # Remove trailing slash if present
-    openrouter_config["base_url"] = openrouter_config["base_url"].rstrip("/")
+    anthropic_config["base_url"] = anthropic_config["base_url"].rstrip("/")
 
-    default_public_endpoints = ["/api/v1/models"]
-    if "public_endpoints" in openrouter_config and openrouter_config["public_endpoints"] is None:
-        openrouter_config["public_endpoints"] = []
-    if not isinstance(openrouter_config["public_endpoints"], list):
+    default_public_endpoints = ["/v1/models"]
+    if "public_endpoints" in anthropic_config and anthropic_config["public_endpoints"] is None:
+        anthropic_config["public_endpoints"] = []
+    if not isinstance(anthropic_config.get("public_endpoints"), list):
         logger.warning(
-            "'openrouter.public_endpoints' missing or invalid in config.yml. "
+            "'anthropic.public_endpoints' missing or invalid in config.yml. "
             "Using default: %s",
             default_public_endpoints
         )
-        openrouter_config["public_endpoints"] = default_public_endpoints
+        anthropic_config["public_endpoints"] = default_public_endpoints
     else:
         validated_endpoints = []
-        for i, endpoint in enumerate(openrouter_config["public_endpoints"]):
+        for i, endpoint in enumerate(anthropic_config["public_endpoints"]):
             if not isinstance(endpoint, str):
-                logger.warning("Item %d in 'openrouter.public_endpoints' is not a string. Skipping.", i)
+                logger.warning("Item %d in 'anthropic.public_endpoints' is not a string. Skipping.", i)
                 continue
             if not endpoint:
-                logger.warning("Item %d in 'openrouter.public_endpoints' is empty. Skipping.", i)
+                logger.warning("Item %d in 'anthropic.public_endpoints' is empty. Skipping.", i)
                 continue
             # Ensure leading slash
             if not endpoint.startswith("/"):
                 validated_endpoints.append("/" + endpoint)
             else:
                 validated_endpoints.append(endpoint)
-        openrouter_config["public_endpoints"] = validated_endpoints
+        anthropic_config["public_endpoints"] = validated_endpoints
 
-    if not isinstance(openrouter_config.get("keys"), list):
-        logger.warning("'openrouter.keys' missing or invalid in config.yml. Using empty list.")
-        openrouter_config["keys"] = []
-    if not openrouter_config["keys"]:
+    if not isinstance(anthropic_config.get("keys"), list):
+        logger.warning("'anthropic.keys' missing or invalid in config.yml. Using empty list.")
+        anthropic_config["keys"] = []
+    if not anthropic_config["keys"]:
         logger.warning(
-            "'openrouter.keys' list is empty in config.yml. "
+            "'anthropic.keys' list is empty in config.yml. "
             "Proxy will not work for authenticated endpoints."
         )
 
     def_key_selection_strategy = "round-robin"
-    if (not isinstance(key_selection_strategy := openrouter_config.get("key_selection_strategy"), str) or
+    if (not isinstance(key_selection_strategy := anthropic_config.get("key_selection_strategy"), str) or
             key_selection_strategy not in ["round-robin", "first", "random"]):
         logger.warning(
-            "'openrouter.key_selection_strategy' is unknown: '%s', set '%s'",
+            "'anthropic.key_selection_strategy' is unknown: '%s', set '%s'",
             str(key_selection_strategy), def_key_selection_strategy
         )
-        openrouter_config["key_selection_strategy"] = def_key_selection_strategy
+        anthropic_config["key_selection_strategy"] = def_key_selection_strategy
 
-    if not isinstance(openrouter_config.get("key_selection_opts"), list):
-        logger.warning("'openrouter.key_selection_opts' missing or invalid in config.yml. Using empty list.")
-        openrouter_config["key_selection_opts"] = []
+    if not isinstance(anthropic_config.get("key_selection_opts"), list):
+        logger.warning("'anthropic.key_selection_opts' missing or invalid in config.yml. Using empty list.")
+        anthropic_config["key_selection_opts"] = []
 
-    default_free_only = False
-    if not isinstance(openrouter_config.get("free_only"), bool):
-         logger.warning(
-             "'openrouter.free_only' missing or invalid in config.yml. Using default: %s",
-             default_free_only
-         )
-         openrouter_config["free_only"] = default_free_only
-
-    default_google_rate_delay = 0
-    if not isinstance(openrouter_config.get("google_rate_delay"), (int, float)):
-         logger.warning(
-             "'openrouter.google_rate_delay' missing or invalid in config.yml. "
-             "Using default: %s",
-             default_google_rate_delay
-         )
-         openrouter_config["google_rate_delay"] = default_google_rate_delay
+    default_rate_limit_cooldown = 14400
+    if not isinstance(anthropic_config.get("rate_limit_cooldown"), (int, float)):
+        logger.warning(
+            "'anthropic.rate_limit_cooldown' missing or invalid in config.yml. "
+            "Using default: %s",
+            default_rate_limit_cooldown
+        )
+        anthropic_config["rate_limit_cooldown"] = default_rate_limit_cooldown
 
     # --- Request Proxy Section ---
     if not isinstance(config_data.get("requestProxy"), dict):

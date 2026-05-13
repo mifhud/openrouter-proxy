@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-API routes for OpenRouter API Proxy.
+API routes for Anthropic-compatible API Proxy.
 """
 
 import json
@@ -12,7 +12,6 @@ from fastapi import APIRouter, Request, Header, HTTPException, FastAPI
 from fastapi.responses import StreamingResponse, Response
 
 from config import config, logger
-from constants import MODELS_ENDPOINTS
 from key_manager import KeyManager, mask_key
 from utils import verify_access_key, check_rate_limit
 
@@ -21,10 +20,10 @@ router = APIRouter()
 
 # Initialize key manager
 key_manager = KeyManager(
-    keys=config["openrouter"]["keys"],
-    cooldown_seconds=config["openrouter"]["rate_limit_cooldown"],
-    strategy=config["openrouter"]["key_selection_strategy"],
-    opts=config["openrouter"]["key_selection_opts"],
+    keys=config["anthropic"]["keys"],
+    cooldown_seconds=config["anthropic"]["rate_limit_cooldown"],
+    strategy=config["anthropic"]["key_selection_strategy"],
+    opts=config["anthropic"]["key_selection_opts"],
 )
 
 
@@ -54,44 +53,25 @@ async def check_httpx_err(body: str | bytes, api_key: Optional[str]):
         await key_manager.disable_key(api_key, reset_time_ms)
 
 
-def remove_paid_models(body: bytes) -> bytes:
-    # {'prompt': '0', 'completion': '0', 'request': '0', 'image': '0', 'web_search': '0', 'internal_reasoning': '0'}
-    prices = ['prompt', 'completion', 'request', 'image', 'web_search', 'internal_reasoning']
-    try:
-        data = json.loads(body)
-    except (json.JSONDecodeError, ValueError) as e:
-        logger.warning("Error models deserialize: %s", str(e))
-    else:
-        if isinstance(data.get("data"), list):
-            clear_data = []
-            for model in data["data"]:
-                if all(model.get("pricing", {}).get(k, "1") == "0" for k in prices):
-                    clear_data.append(model)
-            if clear_data:
-                data["data"] = clear_data
-                body = json.dumps(data, ensure_ascii=False).encode("utf-8")
-    return body
-
-
 def prepare_forward_headers(request: Request) -> dict:
     return {
         k: v
         for k, v in request.headers.items()
         if k.lower()
-           not in ["host", "content-length", "connection", "authorization"]
+           not in ["host", "content-length", "connection", "authorization", "x-api-key"]
     }
 
 
-@router.api_route("/api/v1{path:path}", methods=["GET", "POST"])
+@router.api_route("/v1{path:path}", methods=["GET", "POST"])
 async def proxy_endpoint(
-    request: Request, path: str, authorization: Optional[str] = Header(None)
+    request: Request, path: str, x_api_key: Optional[str] = Header(None)
 ):
-    """Main proxy endpoint for handling all requests to OpenRouter API."""
-    is_public = any(f"/api/v1{path}".startswith(ep) for ep in config["openrouter"]["public_endpoints"])
+    """Main proxy endpoint for handling all requests to Anthropic-compatible API."""
+    is_public = any(f"/v1{path}".startswith(ep) for ep in config["anthropic"]["public_endpoints"])
 
     # Verify authorization for non-public endpoints
     if not is_public:
-        await verify_access_key(authorization=authorization)
+        await verify_access_key(x_api_key=x_api_key)
 
     # Log the full request URL including query parameters
     full_url = str(request.url).replace(str(request.base_url), "/")
@@ -122,67 +102,65 @@ async def proxy_with_httpx(
     api_key: str,
     is_stream: bool,
 ) -> Response:
-    """Core logic to proxy requests."""
-    free_only = (any(f"/api/v1{path}" == ep for ep in MODELS_ENDPOINTS) and
-                 config["openrouter"]["free_only"])
+    """Core logic to proxy requests to Anthropic-compatible API."""
     req_kwargs = {
         "method": request.method,
-        "url": f"{config['openrouter']['base_url']}{path}",
+        "url": f"{config['anthropic']['base_url']}{path}",
         "headers": prepare_forward_headers(request),
         "content": await request.body(),
         "params": request.query_params,
     }
     if api_key:
-        req_kwargs["headers"]["Authorization"] = f"Bearer {api_key}"
+        req_kwargs["headers"]["x-api-key"] = api_key
 
     client = await get_async_client(request)
     try:
-        openrouter_req = client.build_request(**req_kwargs)
-        openrouter_resp = await client.send(openrouter_req, stream=is_stream)
+        anthropic_req = client.build_request(**req_kwargs)
+        anthropic_resp = await client.send(anthropic_req, stream=is_stream)
 
-        if openrouter_resp.status_code >= 400:
+        if anthropic_resp.status_code >= 400:
             if is_stream:
                 try:
-                    await openrouter_resp.aread()
+                    await anthropic_resp.aread()
                 except Exception as e:
-                    await openrouter_resp.aclose()
+                    await anthropic_resp.aclose()
                     raise e
-            openrouter_resp.raise_for_status()
+            anthropic_resp.raise_for_status()
 
-        headers = dict(openrouter_resp.headers)
+        headers = dict(anthropic_resp.headers)
         # Content has already been decoded
         headers.pop("content-encoding", None)
         headers.pop("Content-Encoding", None)
 
         if not is_stream:
-            body = openrouter_resp.content
+            body = anthropic_resp.content
             await check_httpx_err(body, api_key)
-            if free_only:
-                body = remove_paid_models(body)
             return Response(
                 content=body,
-                status_code=openrouter_resp.status_code,
+                status_code=anthropic_resp.status_code,
                 media_type="application/json",
                 headers=headers,
             )
 
         async def sse_stream():
-            last_json = ""
+            error_json = ""
             try:
-                async for line in openrouter_resp.aiter_lines():
-                    if line.startswith("data: {"): # get json only
-                        last_json = line[6:]
+                async for line in anthropic_resp.aiter_lines():
+                    # Capture data lines that contain Anthropic errors for rate limit detection
+                    if line.startswith("data: {"):
+                        data_str = line[6:]
+                        if '"type":"error"' in data_str or '"type": "error"' in data_str:
+                            error_json = data_str
                     yield f"{line}\n\n".encode("utf-8")
             except Exception as err:
                 logger.error("sse_stream error: %s", err)
             finally:
-                await openrouter_resp.aclose()
-            await check_httpx_err(last_json, api_key)
-
+                await anthropic_resp.aclose()
+            await check_httpx_err(error_json, api_key)
 
         return StreamingResponse(
             sse_stream(),
-            status_code=openrouter_resp.status_code,
+            status_code=anthropic_resp.status_code,
             media_type="text/event-stream",
             headers=headers,
         )
@@ -191,11 +169,11 @@ async def proxy_with_httpx(
         logger.error("Request error: %s", str(e))
         raise HTTPException(e.response.status_code, str(e.response.content)) from e
     except httpx.ConnectError as e:
-        logger.error("Connection error to OpenRouter: %s", str(e))
-        raise HTTPException(503, "Unable to connect to OpenRouter API") from e
+        logger.error("Connection error to Anthropic API: %s", str(e))
+        raise HTTPException(503, "Unable to connect to Anthropic API") from e
     except httpx.TimeoutException as e:
-        logger.error("Timeout connecting to OpenRouter: %s", str(e))
-        raise HTTPException(504, "OpenRouter API request timed out") from e
+        logger.error("Timeout connecting to Anthropic API: %s", str(e))
+        raise HTTPException(504, "Anthropic API request timed out") from e
     except Exception as e:
         logger.error("Internal error: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal Proxy Error") from e

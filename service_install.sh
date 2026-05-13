@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# OpenRouter Proxy Service Installation Script
+# Kilocode Proxy Service Installation Script
 
 # Ensure script is run as root
 if [ "$EUID" -ne 0 ]; then
@@ -10,7 +10,7 @@ fi
 
 # Get the absolute path of the application directory
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
-APP_NAME="openrouter-proxy"
+APP_NAME="kilocode-proxy"
 SERVICE_NAME="${APP_NAME}.service"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}"
 
@@ -24,14 +24,14 @@ if [ ! -f "${APP_DIR}/config.yml" ]; then
   exit 1
 fi
 
-echo "Installing OpenRouter Proxy as a systemd service..."
+echo "Installing Kilocode Proxy as a systemd service..."
 echo "Application directory: ${APP_DIR}"
 echo "Service will run as user: ${CURRENT_USER}"
 
 # Create systemd service file
 cat > "${SERVICE_FILE}" << EOL
 [Unit]
-Description=OpenRouter API Proxy Service
+Description=Kilocode API Proxy Service
 After=network.target
 
 [Service]

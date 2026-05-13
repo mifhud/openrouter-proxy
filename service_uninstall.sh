@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# OpenRouter Proxy Service Uninstallation Script
+# Kilocode Proxy Service Uninstallation Script
 
 # Ensure script is run as root
 if [ "$EUID" -ne 0 ]; then
@@ -8,11 +8,11 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-APP_NAME="openrouter-proxy"
+APP_NAME="kilocode-proxy"
 SERVICE_NAME="${APP_NAME}.service"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}"
 
-echo "Uninstalling OpenRouter Proxy systemd service..."
+echo "Uninstalling Kilocode Proxy systemd service..."
 
 # Check if service exists
 if [ ! -f "${SERVICE_FILE}" ]; then
