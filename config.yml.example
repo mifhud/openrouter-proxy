@@ -1,20 +1,21 @@
-# Anthropic-compatible Proxy Configuration
-
 # Server settings
 server:
-  host: "0.0.0.0"  # Default interface
-  port: 5003        # Default port
-  access_key: "your_local_access_key_here"  # Key for accessing the local proxy (clients send as x-api-key)
+  host: "0.0.0.0"  # Interface to bind to
+  port: 5003       # Port to listen on
+  access_key: "dummy-key"  # Authentication key (clients send as x-api-key header)
   log_level: "INFO"  # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
   http_log_level: "INFO"  # HTTP access logs level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-  request_detail_log: false  # Log each incoming request as a curl command
+  request_detail_log: true  # Log each incoming request as a curl command
 
-# Kilo.ai API keys (Anthropic-compatible)
+# Kilo.ai Anthropic-compatible API keys
 anthropic:
   keys:
-    - "your-kilo-api-key-1"
-    - "your-kilo-api-key-2"
-    - "your-kilo-api-key-3"
+    - "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbnYiOiJwcm9kdWN0aW9uIiwia2lsb1VzZXJJZCI6IjNlZDgyZDA0LTdmZGUtNDI5Zi1hODEzLWY2YjY3NjRmOWNkZiIsImFwaVRva2VuUGVwcGVyIjpudWxsLCJ2ZXJzaW9uIjozLCJpYXQiOjE3NzEzMTA2NjgsImV4cCI6MTkyODk5MDY2OH0.wOdZG7kgWnhQ0xvNRZPT4T59U6mttVH9vnf0h2iQEvk"
+    - "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbnYiOiJwcm9kdWN0aW9uIiwia2lsb1VzZXJJZCI6IjUyMzQzOTA2LTgzMGYtNGJjZC05NzVlLTJmY2UwNjNjY2Y3OCIsImFwaVRva2VuUGVwcGVyIjpudWxsLCJ2ZXJzaW9uIjozLCJpYXQiOjE3NzEzMDU1MjQsImV4cCI6MTkyODk4NTUyNH0.JkbV89-_SNUod6g9BBdKE6ESSck4ypUU47L1nJJpCgA"
+    - "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbnYiOiJwcm9kdWN0aW9uIiwia2lsb1VzZXJJZCI6Im9hdXRoL2dvb2dsZToxMTE1NDk0ODI2MDY5NjkxMTM4OTgiLCJhcGlUb2tlblBlcHBlciI6bnVsbCwidmVyc2lvbiI6MywiaWF0IjoxNzcxMzEwNDk4LCJleHAiOjE5Mjg5OTA0OTh9.JeuyFmnjSxCPaOXrPcv1FikHXJhaezdnBWG1rb217u4"
+    - "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbnYiOiJwcm9kdWN0aW9uIiwia2lsb1VzZXJJZCI6ImI1N2I3OWViLTU5Y2QtNDEyYS05YjM4LTczMTczMzBlZDEwNCIsImFwaVRva2VuUGVwcGVyIjpudWxsLCJ2ZXJzaW9uIjozLCJpYXQiOjE3NzE1MTIyNjUsImV4cCI6MTkyOTE5MjI2NX0.113B1la-2nJSWwlEBQqiBwdmx7tf0rZ3L3xQS4ZxuUs"
+    - "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbnYiOiJwcm9kdWN0aW9uIiwia2lsb1VzZXJJZCI6ImExMzFlMmZhLTRlZWEtNGViYy1iNzE2LTAyZDY3MjJiY2FiOSIsImFwaVRva2VuUGVwcGVyIjpudWxsLCJ2ZXJzaW9uIjozLCJpYXQiOjE3NzE1MTIzMzAsImV4cCI6MTkyOTE5MjMzMH0.WXC7wxFxrJPoA-SVbMJxGG1ioDQyyuRBaV68xXgyWWA"
+    - "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbnYiOiJwcm9kdWN0aW9uIiwia2lsb1VzZXJJZCI6ImQwYjQyZmYxLWYyZWEtNGJhYi05OTQwLTZhNTMwZWY3ZTRlNCIsImFwaVRva2VuUGVwcGVyIjpudWxsLCJ2ZXJzaW9uIjozLCJpYXQiOjE3NzE1MTI4MzksImV4cCI6MTkyOTE5MjgzOX0.0oQBx4kufJBx-F5UNx3UVq0uwSYpokI7NONo1VXvgBM"
 
   # Key selection strategy: "round-robin" (default), "first" or "random".
   key_selection_strategy: "round-robin"
@@ -23,14 +24,14 @@ anthropic:
   key_selection_opts: []
 
   # Kilo.ai Anthropic-compatible API base URL
-  base_url: "https://api.kilo.ai/v1"
+  base_url: "https://api.kilo.ai/api/gateway"
 
   # Public endpoints that don't require authentication
   public_endpoints:
-    - "/v1/models"
+    - "/models"
 
   # Time in seconds to temporarily disable a key when rate limit is reached
-  rate_limit_cooldown: 14400  # 4 hours
+  rate_limit_cooldown: 5
 
 # Proxy settings for outgoing requests
 requestProxy:
