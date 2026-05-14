@@ -7,6 +7,7 @@ server:
   access_key: "your_local_access_key_here"  # Key for accessing the local proxy (clients send as x-api-key)
   log_level: "INFO"  # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
   http_log_level: "INFO"  # HTTP access logs level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  request_detail_log: false  # Log each incoming request as a curl command
 
 # Kilo.ai API keys (Anthropic-compatible)
 anthropic:

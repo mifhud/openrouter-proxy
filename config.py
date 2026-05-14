@@ -122,6 +122,14 @@ def normalize_and_validate_config(config_data: Dict[str, Any]):
         )
         anthropic_config["rate_limit_cooldown"] = default_rate_limit_cooldown
 
+    # --- Server Section ---
+    if not isinstance(config_data.get("server"), dict):
+        config_data["server"] = {}
+    server_config = config_data["server"]
+
+    if not isinstance(server_config.get("request_detail_log"), bool):
+        server_config["request_detail_log"] = False
+
     # --- Request Proxy Section ---
     if not isinstance(config_data.get("requestProxy"), dict):
         logger.warning("'requestProxy' section missing or invalid in config.yml. Using defaults.")

@@ -4,8 +4,10 @@ Anthropic-Compatible API Proxy
 Proxies requests to Kilo.ai Anthropic-compatible API and rotates API keys to bypass rate limits.
 """
 
+import shlex
+
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 from config import config, logger
 from routes import router, lifespan
@@ -18,6 +20,29 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+@app.middleware("http")
+async def log_request_as_curl(request: Request, call_next):
+    """Log every incoming request as a curl command when request_detail_log is enabled."""
+    if config["server"].get("request_detail_log", False):
+        body = await request.body()  # Starlette caches body; safe to read again in route handlers
+
+        curl_parts = [f"curl -X {request.method} {shlex.quote(str(request.url))}"]
+
+        for key, value in request.headers.items():
+            curl_parts.append(f"  -H {shlex.quote(f'{key}: {value}')}")
+
+        if body:
+            try:
+                body_str = body.decode("utf-8")
+            except Exception:
+                body_str = f"<binary {len(body)} bytes>"
+            curl_parts.append(f"  -d {shlex.quote(body_str)}")
+
+        logger.info("Incoming request:\n%s", " \\\n".join(curl_parts))
+
+    return await call_next(request)
+
 
 # Include routes
 app.include_router(router)
