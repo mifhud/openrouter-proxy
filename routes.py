@@ -65,19 +65,17 @@ def prepare_forward_headers(request: Request) -> dict:
 @router.api_route("/v1{path:path}", methods=["GET", "POST"])
 async def proxy_endpoint(
     request: Request, path: str,
-    x_api_key: Optional[str] = Header(None),
     authorization: Optional[str] = Header(None),
 ):
     """Main proxy endpoint for handling all requests to Anthropic-compatible API."""
     is_public = any(f"/v1{path}".startswith(ep) for ep in config["anthropic"]["public_endpoints"])
 
-    # Extract key from authorization header if x-api-key not provided
-    if not x_api_key and authorization:
-        x_api_key = authorization.removeprefix("Bearer ").strip()
+    # Extract key from authorization header
+    api_key = authorization.removeprefix("Bearer ").strip() if authorization else ""
 
     # Verify authorization for non-public endpoints
     if not is_public:
-        await verify_access_key(x_api_key=x_api_key)
+        await verify_access_key(authorization=api_key)
 
     # Log the full request URL including query parameters
     full_url = str(request.url).replace(str(request.base_url), "/")

@@ -27,14 +27,14 @@ def get_local_ip() -> str:
 
 
 async def verify_access_key(
-    x_api_key: Optional[str] = None,
+    authorization: Optional[str] = None,
 ) -> bool:
     """
     Verify the local access key for authentication.
-    Accepts x-api-key header (Anthropic SDK style).
+    Accepts authorization header value (Bearer <key> format).
 
     Args:
-        x_api_key: x-api-key header value
+        authorization: authorization header value (with or without Bearer prefix)
 
     Returns:
         True if authentication is successful
@@ -42,10 +42,11 @@ async def verify_access_key(
     Raises:
         HTTPException: If authentication fails
     """
-    if not x_api_key:
-        raise HTTPException(status_code=401, detail="x-api-key header missing")
+    if not authorization:
+        raise HTTPException(status_code=401, detail="authorization header missing")
 
-    if x_api_key != config["server"]["access_key"]:
+    api_key = authorization.removeprefix("Bearer ").strip()
+    if api_key != config["server"]["access_key"]:
         raise HTTPException(status_code=401, detail="Invalid access key")
 
     return True

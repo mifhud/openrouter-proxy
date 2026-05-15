@@ -48,7 +48,7 @@ async def test_anthropic_messages():
 
     url = f"{PROXY_URL}/v1/messages"
     headers = {
-        "x-api-key": ACCESS_KEY or "dummy",
+        "authorization": f"Bearer {ACCESS_KEY or 'dummy'}",
         "anthropic-version": "2023-06-01",
         "content-type": "application/json",
     }
