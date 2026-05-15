@@ -54,17 +54,10 @@ async def verify_access_key(
 
 async def check_rate_limit(data: str or bytes) -> Tuple[bool, Optional[int]]:
     """
-    Check for rate limit error in Anthropic API response.
+    Check for rate limit error in Anthropic OR OpenAI API response.
 
-    Anthropic rate limit error format:
-    {"type": "error", "error": {"type": "rate_limit_error", "message": "..."}}
-
-    Args:
-        data: response body
-
-    Returns:
-        Tuple (has_rate_limit_error, reset_time_ms)
-        reset_time_ms is always None for Anthropic (use default cooldown)
+    Anthropic format: {"type": "error", "error": {"type": "rate_limit_error"}}
+    OpenAI format:    {"error": {"code": "rate_limit_exceeded", "message": "..."}}
     """
     has_rate_limit_error = False
     reset_time_ms = None
@@ -74,10 +67,23 @@ async def check_rate_limit(data: str or bytes) -> Tuple[bool, Optional[int]]:
         logger.warning('Json.loads error %s', e)
         return False, None
 
-    if isinstance(err, dict) and err.get("type") == "error":
+    if not isinstance(err, dict):
+        return False, None
+
+    # Anthropic format
+    if err.get("type") == "error":
         error_info = err.get("error", {})
         if error_info.get("type") == "rate_limit_error":
             has_rate_limit_error = True
             logger.warning("Anthropic rate limit error: %s", error_info.get("message", ""))
+
+    # OpenAI format
+    elif "error" in err:
+        error_info = err.get("error", {})
+        code = str(error_info.get("code", ""))
+        msg = str(error_info.get("message", ""))
+        if "rate_limit" in code.lower() or "rate limit" in msg.lower():
+            has_rate_limit_error = True
+            logger.warning("OpenAI rate limit error: %s", msg)
 
     return has_rate_limit_error, reset_time_ms

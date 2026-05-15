@@ -65,6 +65,20 @@ def normalize_and_validate_config(config_data: Dict[str, Any]):
     # Remove trailing slash if present
     anthropic_config["base_url"] = anthropic_config["base_url"].rstrip("/")
 
+    # api_format: "anthropic" (default, no translation) or "openai" (translate Anthropic↔OpenAI)
+    valid_api_formats = ("anthropic", "openai")
+    api_format_raw = anthropic_config.get("api_format", "anthropic")
+    if not isinstance(api_format_raw, str) or api_format_raw.lower() not in valid_api_formats:
+        logger.warning(
+            "'anthropic.api_format' invalid: '%s'. Valid values: %s. Using 'anthropic'.",
+            api_format_raw, valid_api_formats
+        )
+        anthropic_config["api_format"] = "anthropic"
+    else:
+        anthropic_config["api_format"] = api_format_raw.lower()
+
+    logger.info("API format mode: %s", anthropic_config["api_format"])
+
     default_public_endpoints = ["/v1/models"]
     if "public_endpoints" in anthropic_config and anthropic_config["public_endpoints"] is None:
         anthropic_config["public_endpoints"] = []

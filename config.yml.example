@@ -33,6 +33,8 @@ anthropic:
   # Time in seconds to temporarily disable a key when rate limit is reached
   rate_limit_cooldown: 5
 
+  api_format: "anthropic"  # "anthropic" (default) or "openai" — use OpenAI-compatible upstream
+
 # Proxy settings for outgoing requests
 requestProxy:
   enabled: false    # Set to true to enable proxy
